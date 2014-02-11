@@ -71,11 +71,13 @@ int main(int argc, char **argv, char **envp) {
             PRINT_USAGE;
             return 0;
         }
-        
-        float duration = 0.1f;
+
+        //duration should be long enough to give every step enough time, or the corners will not be sharp enough
+        float duration = 3.0f;
         CGPoint fromPoint = CGPointMake(atoi(argv[2]), atoi(argv[3]));
         CGPoint middlePoint = CGPointMake(atoi(argv[4]), atoi(argv[5]));
         CGPoint toPoint = CGPointMake(atoi(argv[6]), atoi(argv[7]));
+        //add more test points
         CGPoint p = CGPointMake(250, 200);
         CGPoint p1 = CGPointMake(20, 320);
         CGPoint p2 = CGPointMake(190, 260);
@@ -94,7 +96,7 @@ int main(int argc, char **argv, char **envp) {
         }
         [SimulateTouch simulateMoveFromArray:array duration:duration];
         
-        CFRunLoopRunInMode(kCFRunLoopDefaultMode , duration*([array count])+0.1f, NO); //loop enough time
+        CFRunLoopRunInMode(kCFRunLoopDefaultMode , duration+0.1f, NO);
     }else{
         PRINT_USAGE;
         return 0;

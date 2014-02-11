@@ -146,20 +146,20 @@ static void _simulateTouchLoop()
         }else {
             //move to the end point
             simulate_touch_event(touch->pathIndex, STTouchMove, touch->endPoint);
-            //Up after move the last point
+            //touch up after moved to the last point
             if (touchCount == 1) {
                 simulate_touch_event(touch->pathIndex, STTouchUp, touch->endPoint);
             }
-            
+            //remove the finished point
             [ATouchEvents removeObject:touch];
         }
     }
     
     //recursive
-    // dispatch_time_t popTime = dispatch_time(DISPATCH_TIME_NOW, NSEC_PER_SEC / LOOP_TIMES_IN_SECOND);
-    // dispatch_after(popTime, dispatch_get_main_queue(), ^(void){
+    dispatch_time_t popTime = dispatch_time(DISPATCH_TIME_NOW, NSEC_PER_SEC / LOOP_TIMES_IN_SECOND);
+    dispatch_after(popTime, dispatch_get_main_queue(), ^(void){
         _simulateTouchLoop();
-    // });
+    });
 }
 
 #pragma mark -
@@ -265,9 +265,9 @@ static void _simulateTouchLoop()
         touch->type = STTouchMove;
         touch->startPoint = p;
         touch->endPoint = p1;
-        touch->requestedTime = duration;
+        touch->requestedTime = (duration / count);
         touch->pathIndex = r;
-        touch->startTime = curTime + (duration) * i;
+        touch->startTime = curTime + (duration / count) * i;
         
         [ATouchEvents addObject:touch];
     }
