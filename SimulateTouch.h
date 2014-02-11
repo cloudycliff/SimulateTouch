@@ -40,4 +40,5 @@ typedef enum {
 //  Class methods' point is screen point.
 +(int)simulateTouch:(int)pathIndex atPoint:(CGPoint)point withType:(STTouchType)type;
 +(int)simulateSwipeFromPoint:(CGPoint)fromPoint toPoint:(CGPoint)toPoint duration:(float)duration;
++(int)simulateMoveFromArray:(NSArray *)array duration:(float)duration;
 @end

@@ -24,7 +24,7 @@ typedef struct {
     float point_x;
     float point_y;
 } STEvent;
-
+/*
 typedef enum {
     UIInterfaceOrientationPortrait           = 1,//UIDeviceOrientationPortrait,
     UIInterfaceOrientationPortraitUpsideDown = 2,//UIDeviceOrientationPortraitUpsideDown,
@@ -36,7 +36,7 @@ typedef enum {
 +(id)mainScreen;
 -(CGRect)bounds;
 @end
-
+*/
 @interface STTouchA : NSObject
 {
 @public
@@ -54,6 +54,7 @@ typedef enum {
 static CFMessagePortRef messagePort = NULL;
 static NSMutableArray* ATouchEvents = nil;
 static BOOL FTLoopIsRunning = FALSE;
+static int totalCount = 2; //default 2 points for swipes
 
 #pragma mark -
 
@@ -117,64 +118,48 @@ static void _simulateTouchLoop()
         return;
     }
     
-    NSMutableArray* willRemoveObjects = [NSMutableArray array];
     uint64_t curTime = mach_absolute_time();
     
-    for (int i = 0; i < touchCount; i++)
-    {
-        STTouchA* touch = [ATouchEvents objectAtIndex:i];
+    STTouchA* touch = [ATouchEvents objectAtIndex:0];// always deal with the first point
+    
+    int touchType = touch->type;
+    //0: move/stay 1: down 2: up
+    
+    if (touchType == 1) {
+        //Already simulate_touch_event is called
+        touch->type = STTouchMove;
+    }else {
+        double dif = MachTimeToSecs(curTime - touch->startTime);
         
-        int touchType = touch->type;
-        //0: move/stay 1: down 2: up
-        
-        if (touchType == 1) {
-            //Already simulate_touch_event is called
-            touch->type = STTouchMove;
-        }else {
-            double dif = MachTimeToSecs(curTime - touch->startTime);
+        float req = touch->requestedTime * (totalCount - touchCount);
+
+        if (dif >= 0 && dif < req) {
+            //Move
+            float dx = touch->endPoint.x - touch->startPoint.x;
+            float dy = touch->endPoint.y - touch->startPoint.y;
             
-            float req = touch->requestedTime;
-            if (dif >= 0 && dif < req) {
-                //Move
-                
-                float dx = touch->endPoint.x - touch->startPoint.x;
-                float dy = touch->endPoint.y - touch->startPoint.y;
-                
-                double per = dif / (double)req;
-                CGPoint point = CGPointMake(touch->startPoint.x + (float)(dx * per), touch->startPoint.y + (float)(dy * per));
-                
-                int r = simulate_touch_event(touch->pathIndex, STTouchMove, point);
-                if (r == 0) {
-                    NSLog(@"ST Error: touchLoop type:0 index:%d, point:(%d,%d) pathIndex:0", touch->pathIndex, (int)point.x, (int)point.y);
-                    continue;
-                }
-                
-            }else {
-                //Up
-                simulate_touch_event(touch->pathIndex, STTouchMove, touch->endPoint);
-                int r = simulate_touch_event(touch->pathIndex, STTouchUp, touch->endPoint);
-                if (r == 0) {
-                    NSLog(@"ST Error: touchLoop type:2 index:%d, point:(%d,%d) pathIndex:0", touch->pathIndex, (int)touch->endPoint.x, (int)touch->endPoint.y);
-                    continue;
-                }
-                
-                [willRemoveObjects addObject:touch];
+            double per = (dif - (double)req + touch->requestedTime) / touch->requestedTime;
+
+            CGPoint point = CGPointMake(touch->startPoint.x + (float)(dx * per), touch->startPoint.y + (float)(dy * per));
+
+            simulate_touch_event(touch->pathIndex, STTouchMove, point);
+        }else {
+            //move to the end point
+            simulate_touch_event(touch->pathIndex, STTouchMove, touch->endPoint);
+            //Up after move the last point
+            if (touchCount == 1) {
+                simulate_touch_event(touch->pathIndex, STTouchUp, touch->endPoint);
             }
+            
+            [ATouchEvents removeObject:touch];
         }
     }
     
-    for (STTouchA* touch in willRemoveObjects) {
-        [ATouchEvents removeObject:touch];
-        [touch release];
-    }
-    
-    willRemoveObjects = nil;
-    
     //recursive
-    dispatch_time_t popTime = dispatch_time(DISPATCH_TIME_NOW, NSEC_PER_SEC / LOOP_TIMES_IN_SECOND);
-    dispatch_after(popTime, dispatch_get_main_queue(), ^(void){
+    // dispatch_time_t popTime = dispatch_time(DISPATCH_TIME_NOW, NSEC_PER_SEC / LOOP_TIMES_IN_SECOND);
+    // dispatch_after(popTime, dispatch_get_main_queue(), ^(void){
         _simulateTouchLoop();
-    });
+    // });
 }
 
 #pragma mark -
@@ -247,6 +232,45 @@ static void _simulateTouchLoop()
         return 0;
     }
     touch->pathIndex = r;
+    
+    if (!FTLoopIsRunning) {
+        FTLoopIsRunning = TRUE;
+        _simulateTouchLoop();
+    }
+    
+    return r;
+}
+
++(int)simulateMoveFromArray:(NSArray *)array duration:(float)duration
+{
+    if (ATouchEvents == nil) {
+        ATouchEvents = [[NSMutableArray alloc] init];
+    }
+
+    uint64_t curTime = mach_absolute_time();
+    int count = [array count];
+    totalCount = count;
+
+    int r = simulate_touch_event(0, STTouchDown, [[array objectAtIndex:0] CGPointValue]);
+    if (r == 0) {
+        NSLog(@"ST Error: simulateMoveFromDict:duration: pathIndex:0");
+        return 0;
+    }
+
+    for (int i = 0; i < count - 1; i++) {
+        CGPoint p = [[array objectAtIndex:i] CGPointValue];
+        CGPoint p1 = [[array objectAtIndex:(i + 1)] CGPointValue];
+        STTouchA* touch = [[STTouchA alloc] init];
+    
+        touch->type = STTouchMove;
+        touch->startPoint = p;
+        touch->endPoint = p1;
+        touch->requestedTime = duration;
+        touch->pathIndex = r;
+        touch->startTime = curTime + (duration) * i;
+        
+        [ATouchEvents addObject:touch];
+    }
     
     if (!FTLoopIsRunning) {
         FTLoopIsRunning = TRUE;

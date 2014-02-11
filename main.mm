@@ -66,6 +66,35 @@ int main(int argc, char **argv, char **envp) {
         }
         
         CFRunLoopRunInMode(kCFRunLoopDefaultMode , duration+0.1f, NO);
+    }else if (!strcmp(argv[1], "multi")) {
+        if (argc < 8 || argc > 9) {
+            PRINT_USAGE;
+            return 0;
+        }
+        
+        float duration = 0.1f;
+        CGPoint fromPoint = CGPointMake(atoi(argv[2]), atoi(argv[3]));
+        CGPoint middlePoint = CGPointMake(atoi(argv[4]), atoi(argv[5]));
+        CGPoint toPoint = CGPointMake(atoi(argv[6]), atoi(argv[7]));
+        CGPoint p = CGPointMake(250, 200);
+        CGPoint p1 = CGPointMake(20, 320);
+        CGPoint p2 = CGPointMake(190, 260);
+        CGPoint p3 = CGPointMake(50, 190);
+
+        NSArray *array = [[NSArray alloc] initWithObjects:
+            [NSValue valueWithCGPoint:fromPoint], 
+            [NSValue valueWithCGPoint:middlePoint], 
+            [NSValue valueWithCGPoint:toPoint],
+            [NSValue valueWithCGPoint:p],
+            [NSValue valueWithCGPoint:p1],
+            [NSValue valueWithCGPoint:p2],
+            [NSValue valueWithCGPoint:p3], nil];
+        if (argc == 9) {
+            duration = atof(argv[8]);
+        }
+        [SimulateTouch simulateMoveFromArray:array duration:duration];
+        
+        CFRunLoopRunInMode(kCFRunLoopDefaultMode , duration*([array count])+0.1f, NO); //loop enough time
     }else{
         PRINT_USAGE;
         return 0;
